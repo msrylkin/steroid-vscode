@@ -5,83 +5,10 @@ import axios from 'axios';
 import { GitExtension } from './api/git';
 import * as diff from 'diff';
 import { DecorationRangeBehavior } from 'vscode';
+import { getLatestRelease } from './steroidApi';
 
 let state: any = {};
-
-// this method is called when your extension is activated
-// your extension is activated the very first time the command is executed
-export async function activate2(context: vscode.ExtensionContext) {
-	// state = await getState();
-	// await new Promise((resolve, reject) => setTimeout(resolve, 1000));
-	console.log('state', state);
-	console.log('root', vscode.workspace.workspaceFolders)
-
-	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git');
-	console.log('gitExtension.isActive', gitExtension!.isActive)
-	const gitExtensionExports = gitExtension!.exports;
-	const gitApi = gitExtensionExports.getAPI(1);
-	console.log('gitApi.state', gitApi.state)
-
-	// vscode.workspace.on
-
-	for (const workSpaceFolder of vscode.workspace.workspaceFolders || []) {
-		const rootPath = workSpaceFolder.uri.fsPath;
-		const repo = await gitApi.openRepository(vscode.Uri.parse(rootPath));
-		// const state = await repo!.status();
-		console.log('gitApi.state2', gitApi.state)
-
-		if (!repo) {
-			continue;
-		}
-
-		const head = repo.state.HEAD;
-		console.log('gitEnabled', gitExtensionExports.enabled);
-
-		if (!head) {
-			console.log('here head', head);
-			console.log('repos', gitApi.repositories);
-			continue;
-		}
-
-		const commit = head.commit;
-
-		if (!commit) {
-			continue;
-		}
-
-		console.log('commit', commit);
-		
-
-		console.log(vscode.Uri.parse(rootPath))
-
-		console.log('repo', repo);
-	}
-
-	
-	// Use the console to output diagnostic information (console.log) and errors (console.error)
-	// This line of code will only be executed once when your extension is activated
-	console.log('Congratulations, your extension "steroid" is now active!');
-
-	// The command has been defined in the package.json file
-	// Now provide the implementation of the command with registerCommand
-	// The commandId parameter must match the command field in package.json
-	let disposable = vscode.commands.registerCommand('steroid.helloWorld', () => {
-		// The code you place here will be executed every time your command is executed
-		// Display a message box to the user
-		vscode.window.showInformationMessage('Hello World from 123123!');
-		
-		vscode.window.activeTextEditor?.setDecorations(vscode.window.createTextEditorDecorationType({ backgroundColor: '#FF1111' }), [new vscode.Range(1, 1, 10, 1)]);
-	});
-
-	// const another = vscode.workspace.onDidSaveTextDocument(() => vscode.window.showInformationMessage('Hello World from 33333!'));
-	const another = vscode.workspace.onDidSaveTextDocument(e => {
-		// vscode.window.showInformationMessage('Hello World from 33333!');
-		vscode.window.activeTextEditor?.setDecorations(vscode.window.createTextEditorDecorationType({backgroundColor: '#FF1111' }), [new vscode.Range(1, 1, 10, 1)]);
-	});
-
-	// context.subscriptions.push(disposable);
-	context.subscriptions.push(another);
-}
+let repoCommitMap: Record<string, string> = {};
 
 // this method is called when your extension is deactivated
 export function deactivate() {}
@@ -89,71 +16,7 @@ export function deactivate() {}
 
 // private
 
-const steroidBackendBaseUrl = 'http://localhost:3088';
-
-async function getState(commit: string) {
-	try {
-		// console.log('1')
-		const response = await axios.get(`${steroidBackendBaseUrl}/dev/getState`, {
-			headers: {
-				apiKey: '123456',
-			},
-			params: {
-				// commit: 'examplesha'
-				commit
-			}
-		});
-		// console.log('2')
-
-
-		return response.data;
-	} catch (err) {
-		console.error(err)
-	}
-}
-
-// export async function activate(context: vscode.ExtensionContext) {
-// 	// await new Promise(resolve => setTimeout(resolve, 1000)); // if uncomment this, HEAD becomes initialized
-// 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
-// 	const gitApi = gitExtension.getAPI(1);
-
-// 	for (const workSpaceFolder of vscode.workspace.workspaceFolders || []) {
-// 		const rootPath = workSpaceFolder.uri.fsPath;
-// 		const repo = await gitApi.openRepository(vscode.Uri.parse(rootPath));
-
-// 		const head = repo!.state.HEAD;
-
-// 		console.log(head); // undefined
-// 	}
-// }
-
-	
-// 	// Use the console to output diagnostic information (console.log) and errors (console.error)
-// 	// This line of code will only be executed once when your extension is activated
-// 	console.log('Congratulations, your extension "steroid" is now active!');
-
-// 	// The command has been defined in the package.json file
-// 	// Now provide the implementation of the command with registerCommand
-// 	// The commandId parameter must match the command field in package.json
-// 	let disposable = vscode.commands.registerCommand('steroid.helloWorld', () => {
-// 		// The code you place here will be executed every time your command is executed
-// 		// Display a message box to the user
-// 		vscode.window.showInformationMessage('Hello World from 123123!');
-		
-// 		vscode.window.activeTextEditor?.setDecorations(vscode.window.createTextEditorDecorationType({ backgroundColor: '#FF1111' }), [new vscode.Range(1, 1, 10, 1)]);
-// 	});
-
-// 	// const another = vscode.workspace.onDidSaveTextDocument(() => vscode.window.showInformationMessage('Hello World from 33333!'));
-// 	const another = vscode.workspace.onDidSaveTextDocument(e => {
-// 		// vscode.window.showInformationMessage('Hello World from 33333!');
-// 		vscode.window.activeTextEditor?.setDecorations(vscode.window.createTextEditorDecorationType({backgroundColor: '#FF1111' }), [new vscode.Range(1, 1, 10, 1)]);
-// 	});
-
-// 	// context.subscriptions.push(disposable);
-// 	context.subscriptions.push(another);
-// }
-
-export async function activate(context: vscode.ExtensionContext) {
+export async function activate2(context: vscode.ExtensionContext) {
     // await new Promise(resolve => setTimeout(resolve, 1000)); // if uncomment this, HEAD becomes initialized
     const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
     const gitApi = gitExtension.getAPI(1);
@@ -181,7 +44,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			if (!repo.state.HEAD || !repo.state.HEAD.commit) {
 				return;
 			}
-			state[repo.state.HEAD!.commit] = await getState(repo.state.HEAD.commit)
+			// state[repo.state.HEAD!.commit] = await getState(repo.state.HEAD.commit)
 			console.log('received steroid state', state[repo.state.HEAD!.commit])
 		});
 	});
@@ -280,6 +143,138 @@ export async function activate(context: vscode.ExtensionContext) {
 	// context.subscriptions.push(disposable);
 	context.subscriptions.push(another);
 }
+
+const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
+const gitApi = gitExtension.getAPI(1);
+
+export async function activate(context: vscode.ExtensionContext) {
+	// const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
+	// const gitApi = gitExtension.getAPI(1);
+
+	gitApi.onDidOpenRepository((repo) => {
+		repo.state.onDidChange(async () => {
+			if (!repo.state.HEAD || !repo.state.HEAD.commit) {
+				return;
+			}
+			const log = await repo.log({ maxEntries: 100 });
+			console.log('repo', repo);
+			// state[repo.state.HEAD!.commit] = await getState([repo.state.HEAD.commit])
+			state[repo.state.HEAD!.commit] = await getLatestRelease(log.map(({ hash }) => hash));
+			console.log('received steroid state', state[repo.state.HEAD!.commit]);
+		});
+	});
+
+	vscode.workspace.onDidOpenTextDocument((doc) => {
+		console.log('doc', doc);
+	})
+
+	vscode.window.onDidChangeActiveTextEditor((textEditor) => textEditor && markCodePlaces(textEditor));
+
+	const another = vscode.workspace.onDidSaveTextDocument(async (e) => {
+		const activeTextEditor = vscode.window.activeTextEditor;
+		if (!activeTextEditor) {
+			return;
+		}
+
+		const repo = await gitApi.openRepository(vscode.Uri.parse(activeTextEditor.document.uri.fsPath));
+		const commit = repo?.state.HEAD?.commit;
+
+		if (!commit) {
+			return;
+		}
+
+		const commitState = state[commit];
+
+		if (!commitState) {
+			return;
+		}
+
+		// vscode.workspace.onDidCh
+
+		const relative = vscode.workspace.asRelativePath(activeTextEditor.document.fileName);
+
+		const traces = commitState.latestRelease.codePlaces
+			// .filter((a: any) => a.startColumnNumber === 5 && a.startLineNumber === 11 && a.fileName === '/src/example/services.ts')
+			// .filter((a: any) => a.id === 75)
+			// .filter((a: any) => a.lineNumber === 17)
+			// .filter((a: any) => [17,18,19].includes(a.lineNumber))
+			.sort((a: any, b: any) => a.lineNumber - b.lineNumber);
+
+		if (!relative || !relative[0] || relative[0] === '/') {
+			return;
+		}
+
+		// const originalFile = await repo.show(commit, activeTextEditor.document.fileName);
+		console.log('commitState', commitState)
+		const originalFile = await repo.show(commitState.latestRelease.commit, activeTextEditor.document.fileName);
+
+		// console.log(tempFile)
+		console.log(activeTextEditor.document.getText())
+
+		const calculatedDiff = diff.diffLines(originalFile, activeTextEditor.document.getText(), {
+			// newlineIsToken: true
+		})
+
+		console.log('diff', calculatedDiff);
+
+		for (const trace of traces) {
+			console.log('trace.fileName', trace.fileName)
+			console.log(`/${relative}`, `/${relative}`)
+			// if (trace.fileName !== `/${relative}`) {
+			// 	console.log('not match', trace.fileName, `/${relative}`)
+			// 	continue;
+			// }
+			if (trace.fileName !== relative) {
+				console.log('not match', trace.fileName, `/${relative}`)
+				continue;
+			}
+			// console.log('here123', commit, relative, trace.fileName, activeTextEditor.document.fileName)
+
+			// const offset = getOffset(trace.startLineNumber, calculatedDiff);
+			const offset = getOffset(trace.startLine, trace.endLine, calculatedDiff);
+			console.log('offset', offset)
+			console.log('=====================')
+
+			if (offset === undefined) {
+				continue;
+			}
+			// vscode.window.activeTextEditor?.setDecorations(vscode.window.createTextEditorDecorationType({
+			// 	backgroundColor: trace.state.colour,
+			// }), [new vscode.Range(
+			// 	trace.lineNumber - 1 + offset,
+			// 	trace.columnNumber - 1,
+			// 	trace.lineNumber - 1 + offset,
+			// 	trace.columnNumber,
+			// )]);
+			console.log('draw')
+			vscode.window.activeTextEditor?.setDecorations(vscode.window.createTextEditorDecorationType({
+				backgroundColor: '#FF0000' || trace.state.colour,
+				rangeBehavior: DecorationRangeBehavior.OpenClosed,
+				overviewRulerLane: 7,
+			}), [new vscode.Range(
+				trace.startLine + offset,
+				trace.startColumn,
+				trace.endLine + offset,
+				trace.endColumn,
+			)]);
+		}
+
+
+		// vscode.window.showInformationMessage('Hello World from 33333!');
+		// vscode.window.activeTextEditor?.setDecorations(vscode.window.createTextEditorDecorationType({backgroundColor: '#FF1111' }), [new vscode.Range(1, 1, 10, 1)]);
+	});
+
+	context.subscriptions.push(another);
+}
+
+async function markCodePlaces(textEditor: vscode.TextEditor) {
+	const fileName = textEditor.document.fileName;
+	const repo = await gitApi.openRepository(vscode.Uri.parse(textEditor.document.uri.fsPath));
+	const commit = repo?.state.HEAD?.commit;
+
+	// const repo = 
+	// const comm
+} 
 
 function getOffset_(originalLine: number, diffs: diff.Change[]) {
 	console.log('originalLine', originalLine);
@@ -442,7 +437,7 @@ function getOffset333(trackingOriginalLine: number, diffs: diff.Change[]) {
 	console.log('modifiedIndex', modifiedIndex);
 }
 
-function getOffset(trackingOriginalStartlLine: number, trackingOriginalEndLine: number, diffs: diff.Change[]) {
+function getOffsetUnindexed(trackingOriginalStartlLine: number, trackingOriginalEndLine: number, diffs: diff.Change[]) {
 	let originalIndex = 0;
 	let modifiedIndex = 0;
 
@@ -463,6 +458,45 @@ function getOffset(trackingOriginalStartlLine: number, trackingOriginalEndLine: 
 				return undefined;
 			} else {
 				const localOffset = trackingOriginalStartlLine - originalIndex - 1;
+				return modifiedIndex - originalIndex;
+			}
+		}
+
+		if (diff.removed) {
+			originalIndex += diff.count || 0;
+		} else if (diff.added) {
+			modifiedIndex += diff.count || 0;
+		} else {
+			modifiedIndex += diff.count || 0;
+			originalIndex += diff.count || 0;
+		}
+	}
+
+	console.log('originalIndex', originalIndex);
+	console.log('modifiedIndex', modifiedIndex);
+}
+
+function getOffset(trackingOriginalStartlLine: number, trackingOriginalEndLine: number, diffs: diff.Change[]) {
+	let originalIndex = 0;
+	let modifiedIndex = 0;
+
+	for (const diff of diffs) {
+		console.log('diff', diff)
+		console.log('trackingOriginalStartlLine', trackingOriginalStartlLine)
+		console.log('trackingOriginalEndLine', trackingOriginalEndLine)
+		console.log('originalIndex', originalIndex)
+		console.log('modifiedIndex', modifiedIndex)
+		console.log('===============')
+
+		if (
+			trackingOriginalStartlLine >= originalIndex
+			&& trackingOriginalEndLine < originalIndex + (diff.count || 0)
+			&& (diff.removed || (!diff.removed && !diff.added))
+		) {
+			if (diff.removed) {
+				return undefined;
+			} else {
+				const localOffset = trackingOriginalStartlLine - originalIndex;
 				return modifiedIndex - originalIndex;
 			}
 		}
