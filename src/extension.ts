@@ -44,18 +44,20 @@ async function markCodePlaces(textEditor: vscode.TextEditor) {
 		return;
 	}
 
-	const latestReleaseForRepo = state[commit];
+	const latestReleaseForRepo: Awaited<ReturnType<typeof getLatestRelease>> | undefined = state[commit];
 
 	if (!latestReleaseForRepo) {
 		return;
 	}
 
-	const relative = vscode.workspace.asRelativePath(textEditor.document.fileName);
+	let relative = vscode.workspace.asRelativePath(textEditor.document.fileName);
 	const traces = latestReleaseForRepo.codePlaces.sort((a: any, b: any) => a.lineNumber - b.lineNumber);
 
 	if (!relative || !relative[0] || relative[0] === '/') {
 		return;
 	}
+
+	relative = relative[0] === '/' ? relative : `/${relative}`;
 
 	const originalFile = await repo.show(latestReleaseForRepo.commit, textEditor.document.fileName);
 	const calculatedDiff = diff.diffLines(originalFile, textEditor.document.getText());
@@ -65,7 +67,7 @@ async function markCodePlaces(textEditor: vscode.TextEditor) {
 			continue;
 		}
 
-		const offset = getOffset(trace.startLine, trace.endLine, calculatedDiff);
+		const offset = getOffset(trace.startLine - 1, trace.endLine - 1, calculatedDiff);
 
 		if (offset === undefined) {
 			continue;
@@ -76,10 +78,10 @@ async function markCodePlaces(textEditor: vscode.TextEditor) {
 			rangeBehavior: DecorationRangeBehavior.OpenOpen,
 			overviewRulerLane: 7,
 		}), [new vscode.Range(
-			trace.startLine + offset,
-			trace.startColumn,
-			trace.endLine + offset,
-			trace.endColumn,
+			trace.startLine + offset - 1,
+			trace.startColumn - 1,
+			trace.endLine + offset - 1,
+			trace.endColumn - 1,
 		)]);
 	}
 } 
