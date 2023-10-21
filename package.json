@@ -19,7 +19,22 @@
 				"command": "steroid.helloWorld",
 				"title": "Hello World"
 			}
-		]
+		],
+		"viewsContainers": {
+			"activitybar": [{
+				"id": "steroid-activitybar",
+				"title": "Steroid Traces",
+				"icon": "database.svg"
+			}]
+		},
+		"views": {
+			"steroid-activitybar": [
+				{
+					"id": "steroid-traces",
+					"name": "Steroid traces"
+				}
+			]
+		}
 	},
 	"extensionDependencies": [
 		"vscode.git"

@@ -6,6 +6,7 @@ import { GitExtension } from './api/git';
 import * as diff from 'diff';
 import { DecorationRangeBehavior } from 'vscode';
 import { getLatestRelease } from './steroidApi';
+import { SteroidDataProvider } from './SteroidDataProvider';
 
 let state: any = {};
 
@@ -13,6 +14,12 @@ export function deactivate() {}
 
 const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')!.exports;
 const gitApi = gitExtension.getAPI(1);
+
+const slowCodeDecoration = vscode.window.createTextEditorDecorationType({
+	backgroundColor: 'rgba(255, 0, 0, 0.25)',
+	rangeBehavior: DecorationRangeBehavior.ClosedClosed,
+	overviewRulerLane: vscode.OverviewRulerLane.Full,
+});
 
 export async function activate(context: vscode.ExtensionContext) {
 	gitApi.onDidOpenRepository((repo) => {
@@ -34,6 +41,10 @@ export async function activate(context: vscode.ExtensionContext) {
 	const onDidChangeActiveTextEditor = vscode.window.onDidChangeActiveTextEditor((textEditor) => textEditor && markCodePlaces(textEditor));
 
 	context.subscriptions.push(onDidChangeActiveTextEditor);
+
+	vscode.window.createTreeView('steroid-traces', {
+		treeDataProvider: new SteroidDataProvider(),
+	});
 }
 
 async function markCodePlaces(textEditor: vscode.TextEditor) {
@@ -52,6 +63,7 @@ async function markCodePlaces(textEditor: vscode.TextEditor) {
 
 	let relative = vscode.workspace.asRelativePath(textEditor.document.fileName);
 	const traces = latestReleaseForRepo.codePlaces.sort((a: any, b: any) => a.lineNumber - b.lineNumber);
+	console.log('traces', traces);
 
 	if (!relative || !relative[0] || relative[0] === '/') {
 		return;
@@ -61,6 +73,9 @@ async function markCodePlaces(textEditor: vscode.TextEditor) {
 
 	const originalFile = await repo.show(latestReleaseForRepo.commit, textEditor.document.fileName);
 	const calculatedDiff = diff.diffLines(originalFile, textEditor.document.getText());
+
+	// const ranges: vscode.Range[] = [];
+	const rangesWithSettings: vscode.DecorationOptions[] = [];
 
 	for (const trace of traces) {
 		if (trace.fileName !== relative) {
@@ -73,16 +88,26 @@ async function markCodePlaces(textEditor: vscode.TextEditor) {
 			continue;
 		}
 
-		vscode.window.activeTextEditor?.setDecorations(vscode.window.createTextEditorDecorationType({
-			backgroundColor: '#FF0000',
-			rangeBehavior: DecorationRangeBehavior.OpenOpen,
-			overviewRulerLane: 7,
-		}), [new vscode.Range(
-			trace.startLine + offset - 1,
-			trace.startColumn - 1,
-			trace.endLine + offset - 1,
-			trace.endColumn - 1,
-		)]);
+		// ranges.push(new vscode.Range(
+		// 	trace.startLine + offset - 1,
+		// 	trace.startColumn - 1,
+		// 	trace.endLine + offset - 1,
+		// 	trace.endColumn - 1,
+		// ));
+		rangesWithSettings.push({
+			range: new vscode.Range(
+				trace.startLine + offset - 1,
+				trace.startColumn - 1,
+				trace.endLine + offset - 1,
+				trace.endColumn - 1,
+			),
+			hoverMessage: new vscode.MarkdownString(`${226}ms | view trace: [link](http://google.com)`),
+		})
+	}
+
+	if (rangesWithSettings.length) {
+		vscode.window.activeTextEditor?.setDecorations(slowCodeDecoration, []);
+		vscode.window.activeTextEditor?.setDecorations(slowCodeDecoration, rangesWithSettings);
 	}
 } 
 
