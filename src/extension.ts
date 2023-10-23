@@ -5,10 +5,11 @@ import axios from 'axios';
 import { GitExtension } from './api/git';
 import * as diff from 'diff';
 import { DecorationRangeBehavior } from 'vscode';
-import { getLatestRelease } from './steroidApi';
+import { StateResponse, getLatestRelease } from './steroidApi';
 import { SteroidDataProvider } from './SteroidDataProvider';
+import { join, resolve } from 'path';
 
-let state: any = {};
+let state: {[key:string]: StateResponse['latestRelease']} = {};
 
 export function deactivate() {}
 
@@ -22,29 +23,80 @@ const slowCodeDecoration = vscode.window.createTextEditorDecorationType({
 });
 
 export async function activate(context: vscode.ExtensionContext) {
+	vscode.commands.registerCommand('steroidTraces.viewInTextEditor', (params) => console.log('executed', params));
+	const steroidDataProvider = new SteroidDataProvider('', []);
+	const view = vscode.window.createTreeView('steroid-traces', {
+		treeDataProvider: steroidDataProvider,
+	});
+	view.onDidChangeSelection(async ({ selection: [item] }) => {
+		console.log(item)
+		console.log(vscode.workspace)
+
+		if (!item) {
+			return;
+		}
+
+		console.log(vscode.workspace.workspaceFolders)
+
+		const openedFolders = vscode.workspace.workspaceFolders;
+
+		if (!openedFolders) {
+			return;
+		}
+
+		for (const folder of openedFolders) {
+			const repo = await gitApi.openRepository(folder.uri);
+			if (repo?.state.HEAD?.commit === item.commit) {
+				const fullFileParh = join(folder.uri.path, item.fileName);
+				console.log(fullFileParh, folder)
+				const originalFile = await repo.show(item.commit, fullFileParh);
+				const editor = await vscode.window.showTextDocument(vscode.Uri.parse(fullFileParh), {
+					selection: new vscode.Range(new vscode.Position(item.startLine - 1, item.startColumn - 1), new vscode.Position(item.startLine - 1, item.startColumn - 1))
+				});
+				const calculatedDiff = diff.diffLines(originalFile, editor.document.getText());
+				const offset = getOffset(item.startLine - 1, item.startLine - 1, calculatedDiff);
+
+				if (offset && offset !== 0) {
+					await vscode.commands
+						.executeCommand("cursorMove", {
+							to: "down",
+							by: "line",
+							value: offset,
+						});
+				}
+				
+				
+				break;
+			}
+		}
+		// const folder = vscode.workspace.getWorkspaceFolder(vscode.Uri.parse('/Users/maxmax/steroid/src/express.ts'))
+		// console.log(folder);
+		// vscode.window.showTextDocument(vscode.Uri.parse('/Users/maxmax/steroid/src/express.ts'));
+	});
+
 	gitApi.onDidOpenRepository((repo) => {
 		repo.state.onDidChange(async () => {
 			if (!repo.state.HEAD || !repo.state.HEAD.commit) {
 				return;
 			}
+
+			const commit = repo.state.HEAD.commit;
 			const log = await repo.log({ maxEntries: 100 });
-			state[repo.state.HEAD!.commit] = await getLatestRelease(log.map(({ hash }) => hash));
+			state[commit] = await getLatestRelease(log.map(({ hash }) => hash));
 
 			const activeTextEditor = vscode.window.activeTextEditor;
 
 			if (activeTextEditor) {
 				await markCodePlaces(activeTextEditor);
 			}
+
+			steroidDataProvider.refresh(commit, state[commit].codePlaces);
 		});
 	});
 
 	const onDidChangeActiveTextEditor = vscode.window.onDidChangeActiveTextEditor((textEditor) => textEditor && markCodePlaces(textEditor));
 
 	context.subscriptions.push(onDidChangeActiveTextEditor);
-
-	vscode.window.createTreeView('steroid-traces', {
-		treeDataProvider: new SteroidDataProvider(),
-	});
 }
 
 async function markCodePlaces(textEditor: vscode.TextEditor) {
