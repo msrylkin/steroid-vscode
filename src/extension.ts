@@ -50,11 +50,13 @@ export async function activate(context: vscode.ExtensionContext) {
 				const fullFileParh = join(folder.uri.path, item.fileName);
 				console.log(fullFileParh, folder)
 				const originalFile = await repo.show(item.commit, fullFileParh);
-				const editor = await vscode.window.showTextDocument(vscode.Uri.parse(fullFileParh), {
+				const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(fullFileParh));
+				const currentText = document.getText();
+				const calculatedDiff = diff.diffLines(originalFile, currentText);
+				const offset = getOffset(item.startLine - 1, item.startLine - 1, calculatedDiff);
+				await vscode.window.showTextDocument(document, {
 					selection: new vscode.Range(new vscode.Position(item.startLine - 1, item.startColumn - 1), new vscode.Position(item.startLine - 1, item.startColumn - 1))
 				});
-				const calculatedDiff = diff.diffLines(originalFile, editor.document.getText());
-				const offset = getOffset(item.startLine - 1, item.startLine - 1, calculatedDiff);
 
 				if (offset && offset !== 0) {
 					await vscode.commands
