@@ -114,7 +114,7 @@ async function markCodePlaces(textEditor: vscode.TextEditor) {
 
   let relative = vscode.workspace.asRelativePath(textEditor.document.fileName);
   const traces = latestReleaseForRepo.codePlaces.sort(
-    (a: any, b: any) => a.lineNumber - b.lineNumber,
+    (a, b) => a.startLine - b.startLine,
   );
   console.log('traces', traces);
 
@@ -181,7 +181,7 @@ function getOffset(
       if (diff.removed) {
         return undefined;
       } else {
-        const localOffset = trackingOriginalStartlLine - originalIndex;
+        // const localOffset = trackingOriginalStartlLine - originalIndex;
         return modifiedIndex - originalIndex;
       }
     }
